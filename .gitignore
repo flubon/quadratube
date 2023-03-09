@@ -1,0 +1,15 @@
+# compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# directory of compiled source
+__pycache__/
+build/
+out/
+
+# vscode
+.vscode
