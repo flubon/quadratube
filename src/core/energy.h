@@ -15,77 +15,65 @@
 namespace CoreEnergy {
 
 /**
- * @brief local harmonic bond energy, 1/2 of all bonds' energy around the node
+ * @brief harmonic bond energy
  * 
- * @param para para[0]: rest lenth, para[1]: elastic coefficient k
- * @param center 
+ * @param para para[0]: rest length, para[1]: elastic coefficient k
+ * @param other 
+ * @return double 
+ */
+inline double harmonic_energy(const double* para, const CoreMath::Vector& other) {
+  return para[1]/2 * (CoreMath::mod(other)-para[0]) * (CoreMath::mod(other)-para[0]);
+}
+
+inline CoreMath::Vector harmonic_gradient(const double* para, const CoreMath::Vector& other) {
+  return para[1] * (1-para[0]/CoreMath::mod(other)) * other;
+}
+
+/**
+ * @brief Lennard-Jones truncated & shifted potential
+ * 
+ * @param para para[0]: rest length, para[1]: coefficient, para[2]: cutoff length
+ * @param other 
+ * @return double 
+ */
+inline double ljts_energy(const double* para, const CoreMath::Vector& other) {
+  if (CoreMath::mod(other) > para[2])
+    return 0;
+  // (r_min / r_end)^6
+  double rmin_rend6 = Kokkos::pow(para[0]/para[2], 6);
+  double cutoff_energy = (rmin_rend6 - 2) * rmin_rend6;
+  // (r_min / r)^6
+  double rmin_r6 = Kokkos::pow(para[0]/CoreMath::mod(other), 6);
+  return para[1] * (rmin_r6 - 2) * rmin_r6 - cutoff_energy;
+}
+
+inline CoreMath::Vector ljts_gradient(const double* para, const CoreMath::Vector& other) {
+  if (CoreMath::mod(other) > para[2])
+    return CoreMath::Vector();
+  // r_min^6 / r^7
+  double rmin6_r7 = Kokkos::pow(para[0], 6) / Kokkos::pow(CoreMath::mod(other), 7);
+  return 12 * para[1] * rmin6_r7*(1/CoreMath::mod(other) - rmin6_r7) * other;
+}
+
+/**
+ * @brief mean curvature and gaussian curvature
+ * 
  * @param others 
  * @return double 
  */
-double harmonic_bond_energy(CoreMath::Array<double> para, CoreMath::Vector center, 
-    CoreMath::Array<CoreMath::Vector> others);
+double mean_curvature(const CoreMath::Array<CoreMath::Vector>& others);
+double gaussian_curvature(const CoreMath::Array<CoreMath::Vector>& others);
 
 /**
- * @brief local force arised from harmonic bond energy
+ * @brief total energy arised from curvature
  * 
- * @param para para[0]: rest lenth, para[1]: elastic coefficient k
- * @param center 
- * @param others 
- * @return CoreMath::Vector 
- */
-CoreMath::Vector harmonic_bond_force(CoreMath::Array<double> para, CoreMath::Vector center, 
-    CoreMath::Array<CoreMath::Vector> others);
-
-/**
- * @brief local Lennard-Jones truncated & shifted potential
- * 
- * @param para para[0]: rest lenth, para[1]: coefficient, para[2]: cutoff lenth
- * @param center 
+ * @param para para[0]: coefficient
  * @param others 
  * @return double 
  */
-double ljts_bond_energy(CoreMath::Array<double> para, CoreMath::Vector center, 
-    CoreMath::Array<CoreMath::Vector> others);
-
-/**
- * @brief local force arised from LJTS potential
- * 
- * @param para para[0]: rest lenth, para[1]: coefficient, para[2]: cutoff lenth
- * @param center 
- * @param others 
- * @return CoreMath::Vector 
- */
-CoreMath::Vector ljts_bond_force(CoreMath::Array<double> para, CoreMath::Vector center, 
-    CoreMath::Array<CoreMath::Vector> others);
-
-/**
- * @brief 
- * 
- * @param center 
- * @param others 
- * @return double 
- */
-double mean_node_curvature(CoreMath::Vector center, CoreMath::Array<CoreMath::Vector> others);
-
-/**
- * @brief 
- * 
- * @param center 
- * @param others 
- * @return double 
- */
-double gaussian_node_curvature(CoreMath::Vector center, CoreMath::Array<CoreMath::Vector> others);
-
-/**
- * @brief 
- * 
- * @param para 
- * @param center 
- * @param others 
- * @return double 
- */
-double curvature_node_energy(CoreMath::Array<double> para, CoreMath::Vector center,
-    CoreMath::Array<CoreMath::Vector> others);
+double curvature_energy(const double* para, const CoreMath::Array<CoreMath::Vector>& others);
+CoreMath::Array<CoreMath::Vector> curvature_gradient(const double* para, 
+    const CoreMath::Array<CoreMath::Vector>& others);
 
 } // namespace CoreEnergy
 

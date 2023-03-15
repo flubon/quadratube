@@ -12,6 +12,6 @@ find_package(Kokkos REQUIRED)
 set(CMAKE_BUILD_TYPE "Debug")
 
 # 源文件，编译和链接成可执行文件
-file(GLOB SOURCES "src/*.cpp")
+file(GLOB_RECURSE SOURCES "src/*.cpp")
 add_executable(quadratube ${SOURCES})
 target_link_libraries(quadratube Kokkos::kokkos)

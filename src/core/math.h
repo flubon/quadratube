@@ -10,7 +10,9 @@
 #ifndef QUADRATUBE_CORE_MATH_H_
 #define QUADRATUBE_CORE_MATH_H_
 
-#include <Kokkos_Vector.hpp>
+#include <string>
+
+#include <Kokkos_DualView.hpp>
 #include <Kokkos_Random.hpp>
 
 #define PI 3.141592653589793
@@ -35,16 +37,17 @@ class Array {
     inline Array(size_t n = 0): __len(n), __data{T()} {}
 
     /// @brief Iterator
-    typedef T* iterator;
+    using iterator = T*;
     inline iterator begin() { return &__data[0]; }
     inline iterator end() { return &__data[__len]; }
 
     /// @brief Capacity
-    inline size_t size() { return __len; }
+    inline size_t size() const { return __len; }
     inline void resize(size_t n) { __len = n; }
 
     /// @brief Element access
     inline T& operator[](int i) { return __data[i]; }
+    inline T operator[](int i) const { return __data[i]; }
     inline T* data() { return __data; }
     
     /// @brief Modifiers
@@ -67,7 +70,7 @@ class Array {
     }
 
     /// @brief Compare operators
-    bool operator==(Array<T> p) {
+    bool operator==(const Array<T>& p) const {
       if (__len != p.__len)
         return false;
       for (int i=0; i<__len; i++)
@@ -99,8 +102,28 @@ class Array {
  * @tparam T 
  */
 template <typename T>
-class View : Kokkos::vector<T> {
-  
+class View : public Kokkos::DualView<T*> {
+  public:
+    /// @brief Constructor
+    inline void init(size_t len, size_t cap) {
+      __len = len;
+      this->realloc(cap);
+    }
+    inline void init(size_t len) { init(len, len); }
+
+    /// @brief Capacity
+    inline size_t size() const { return __len; }
+
+    /// @brief Element access, for host 
+    inline T& operator[](int i) { return this->h_view(i); }
+    inline T operator[](int i) const { return this->h_view(i); }
+
+    /// @brief Element access, for device
+    inline T& operator()(int i) { return this->d_view(i); }
+    inline T operator()(int i) const { return this->d_view(i); }
+
+  private:
+    size_t __len;
 }; // class View
 
 
@@ -114,36 +137,37 @@ class Vector {
     inline Vector(): __data{0} {}
     inline Vector(double i, double j, double k): __data{i, j, k} {}
     inline double& operator[](int i) { return __data[i]; }
+    inline double operator[](int i) const { return __data[i]; }
 
     /// @brief add, subtract and self-add
-    inline Vector operator+(Vector p) {
+    inline Vector operator+(const Vector& p) const {
       return Vector(__data[0] + p[0], __data[1] + p[1], __data[2] + p[2]);
     }
-    inline Vector operator-() { return Vector(-__data[0], -__data[1], -__data[2]); }
-    inline Vector operator-(Vector p) {
+    inline Vector operator-() const { return Vector(-__data[0], -__data[1], -__data[2]); }
+    inline Vector operator-(const Vector& p) const {
       return Vector(__data[0] - p[0], __data[1] - p[1], __data[2] - p[2]);
     }
-    inline void operator+=(Vector p) {
+    inline void operator+=(const Vector& p) {
       __data[0] += p[0]; __data[1] += p[1]; __data[2] += p[2];
     }
 
     /// @brief quantity product
-    inline Vector operator*(double n) {
+    inline Vector operator*(double n) const {
       return Vector(n * __data[0], n * __data[1], n * __data[2]);
     }
     
     /// @brief 1/n times vector
-    inline Vector operator/(double n) {
+    inline Vector operator/(double n) const {
       return Vector(__data[0] / n, __data[1] / n, __data[2] / n);
     }
 
     /// @brief dot product of two vectors
-    inline double operator*(Vector p) {
+    inline double operator*(const Vector& p) const {
       return __data[0] * p[0] + __data[1] * p[1] + __data[2] * p[2];
     }
 
     /// @brief compare two vectors
-    inline bool operator==(Vector p) {
+    inline bool operator==(const Vector& p) const {
       return __data[0]==p[0] && __data[1]==p[1] && __data[2]==p[2];
     }
 
@@ -152,16 +176,16 @@ class Vector {
 }; // class Vector
 
 /// @brief quantity product for n on the left hand
-inline Vector operator*(double n, Vector p) { return p * n; }
+inline Vector operator*(double n, const Vector& p) { return p * n; }
 
 /// @brief cross product of two vectors
-inline Vector cross(Vector p1, Vector p2) {
+inline Vector cross(const Vector& p1, const Vector& p2) {
   return Vector( p1[1]*p2[2] - p1[2]*p2[1], p1[2]*p2[0] - p1[0]*p2[2],
     p1[0]*p2[1] - p1[1]*p2[0]);
 }
 
 /// @brief length of vector p
-inline double mod(Vector p) { return Kokkos::sqrt(p * p); }
+inline double mod(const Vector& p) { return Kokkos::sqrt(p * p); }
 
 
 /**
@@ -177,9 +201,10 @@ class Pair {
     inline Pair(): __data{0} {}
     inline Pair(T a, T b): __data{a, b} {}
     inline T& operator[](int i) { return __data[i]; }
+    inline T operator[](int i) const { return __data[i]; }
     
     /// @brief If node a is connected by this bond, return the other node. Return -1 else.
-    inline T find(T a) {
+    inline T find(T a) const {
       return (__data[0] == a) ? __data[1] : ((__data[1] == a) ? __data[0] : -1);
     }
 
@@ -197,15 +222,15 @@ class Pair {
     }
 
     /// @brief compare
-    inline bool operator==(Pair<T> b) {
+    inline bool operator==(Pair<T> b) const {
       return (__data[0] == b[0] && __data[1] == b[1]) || (__data[1] == b[0] && __data[0] == b[1]);
     }
 
     /// @brief add and substrct, for 2 dimensional coordinates
-    inline Pair<T> operator-(Pair<T> b) {
+    inline Pair<T> operator-(Pair<T> b) const {
       return Pair<T>(__data[0] - b[0], __data[1] - b[1]);
     }
-    inline Pair<T> operator+(Pair<T> b) {
+    inline Pair<T> operator+(Pair<T> b) const {
       return Pair<T>(__data[0] + b[0], __data[1] + b[1]);
     }
 
