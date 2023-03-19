@@ -36,8 +36,8 @@ int main(int argc, char* argv[]) {
   model.load("restart.bin");
 #else
   // initialize model with initializer
-  ModelInitializer::Initializer4 initializer(model);
-  ModelInitializer::Parameters4 parameters = {
+  ModelInitializer::Initializer initializer(model);
+  ModelInitializer::Parameters parameters = {
     .m = 5, .n = 3, .repeat = 8, .direction = -1, .glide = 5, .climb = 0
   };
   initializer.init(parameters);
@@ -63,3 +63,8 @@ int main(int argc, char* argv[]) {
 
   return 0;
 }
+
+// #include "test-inl.h"
+// int main() {
+//   test_parallel();
+// }

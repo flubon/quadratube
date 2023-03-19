@@ -10,6 +10,8 @@
 #ifndef QUADRATUBE_CORE_ENERGY_H_
 #define QUADRATUBE_CORE_ENERGY_H_
 
+#include <Kokkos_Core.hpp>
+
 #include "core/math.h"
 
 namespace CoreEnergy {
@@ -21,11 +23,12 @@ namespace CoreEnergy {
  * @param other 
  * @return double 
  */
-inline double harmonic_energy(const double* para, const CoreMath::Vector& other) {
+KOKKOS_INLINE_FUNCTION
+double harmonic_energy(const double* para, const CoreMath::Vector& other) {
   return para[1]/2 * (CoreMath::mod(other)-para[0]) * (CoreMath::mod(other)-para[0]);
 }
-
-inline CoreMath::Vector harmonic_gradient(const double* para, const CoreMath::Vector& other) {
+KOKKOS_INLINE_FUNCTION
+CoreMath::Vector harmonic_gradient(const double* para, const CoreMath::Vector& other) {
   return para[1] * (1-para[0]/CoreMath::mod(other)) * other;
 }
 
@@ -36,7 +39,8 @@ inline CoreMath::Vector harmonic_gradient(const double* para, const CoreMath::Ve
  * @param other 
  * @return double 
  */
-inline double ljts_energy(const double* para, const CoreMath::Vector& other) {
+KOKKOS_INLINE_FUNCTION
+double ljts_energy(const double* para, const CoreMath::Vector& other) {
   if (CoreMath::mod(other) > para[2])
     return 0;
   // (r_min / r_end)^6
@@ -46,8 +50,8 @@ inline double ljts_energy(const double* para, const CoreMath::Vector& other) {
   double rmin_r6 = Kokkos::pow(para[0]/CoreMath::mod(other), 6);
   return para[1] * (rmin_r6 - 2) * rmin_r6 - cutoff_energy;
 }
-
-inline CoreMath::Vector ljts_gradient(const double* para, const CoreMath::Vector& other) {
+KOKKOS_INLINE_FUNCTION
+CoreMath::Vector ljts_gradient(const double* para, const CoreMath::Vector& other) {
   if (CoreMath::mod(other) > para[2])
     return CoreMath::Vector();
   // r_min^6 / r^7
@@ -61,7 +65,9 @@ inline CoreMath::Vector ljts_gradient(const double* para, const CoreMath::Vector
  * @param others 
  * @return double 
  */
+KOKKOS_FUNCTION
 double mean_curvature(const CoreMath::Array<CoreMath::Vector>& others);
+KOKKOS_FUNCTION
 double gaussian_curvature(const CoreMath::Array<CoreMath::Vector>& others);
 
 /**
@@ -71,7 +77,9 @@ double gaussian_curvature(const CoreMath::Array<CoreMath::Vector>& others);
  * @param others 
  * @return double 
  */
+KOKKOS_FUNCTION
 double curvature_energy(const double* para, const CoreMath::Array<CoreMath::Vector>& others);
+KOKKOS_FUNCTION
 CoreMath::Array<CoreMath::Vector> curvature_gradient(const double* para, 
     const CoreMath::Array<CoreMath::Vector>& others);
 

@@ -40,23 +40,29 @@ class EnergyMetaData {
 
     /// @brief alias of energy function and gradient function for update and dump
     ///    function, use these in class System instead of direct CoreEnergy function
-    inline double bond1_energy(const CoreMath::Vector& other) {
+    KOKKOS_INLINE_FUNCTION
+    double bond1_energy(const CoreMath::Vector& other) const {
       return CoreEnergy::harmonic_energy(__data, other);
     }
-    inline CoreMath::Vector bond1_gradient(const CoreMath::Vector& other) {
+    KOKKOS_INLINE_FUNCTION
+    CoreMath::Vector bond1_gradient(const CoreMath::Vector& other) const {
       return CoreEnergy::harmonic_gradient(__data, other);
     }
-    inline double bond2_energy(const CoreMath::Vector& other) {
+    KOKKOS_INLINE_FUNCTION
+    double bond2_energy(const CoreMath::Vector& other) const {
       return CoreEnergy::ljts_energy(__data+3, other);
     }
-    inline CoreMath::Vector bond2_gradient(const CoreMath::Vector& other) {
+    KOKKOS_INLINE_FUNCTION
+    CoreMath::Vector bond2_gradient(const CoreMath::Vector& other) const {
       return CoreEnergy::ljts_gradient(__data+3, other);
     }
-    inline double curvature_energy(const CoreMath::Array<CoreMath::Vector>& others) {
+    KOKKOS_INLINE_FUNCTION
+    double curvature_energy(const CoreMath::Array<CoreMath::Vector>& others) const {
       return CoreEnergy::curvature_energy(__data+6, others);
     }
-    inline CoreMath::Array<CoreMath::Vector> curvature_gradient(
-        const CoreMath::Array<CoreMath::Vector>& others) {
+    KOKKOS_INLINE_FUNCTION
+    CoreMath::Array<CoreMath::Vector> curvature_gradient(
+        const CoreMath::Array<CoreMath::Vector>& others) const {
       return CoreEnergy::curvature_gradient(__data+6, others);
     }
   
@@ -121,8 +127,8 @@ struct {
 /// check whether name is in i
 #define DUMP_CHECK(name, i) ((name & i) != 0)
 
-/// 0: gradient descent, 1: langevin dynamics, 2: overdamped langevin dynamics
-#define DYNAMICS 2
+/// if MODEL_TYPE == 3, using triangular grid, 4 for quadrangular grid
+#define MODEL_TYPE 3
 
 } // namespace Metadata
 

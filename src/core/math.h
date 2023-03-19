@@ -34,42 +34,55 @@ template <typename T, size_t N = 8>
 class Array {
   public:
     /// @brief Constructor
-    inline Array(size_t n = 0): __len(n), __data{T()} {}
+    KOKKOS_INLINE_FUNCTION
+    Array(size_t n = 0): __len(n), __data{T()} {}
 
     /// @brief Iterator
     using iterator = T*;
-    inline iterator begin() { return &__data[0]; }
-    inline iterator end() { return &__data[__len]; }
+    KOKKOS_INLINE_FUNCTION
+    iterator begin() { return &__data[0]; }
+    KOKKOS_INLINE_FUNCTION
+    iterator end() { return &__data[__len]; }
 
     /// @brief Capacity
-    inline size_t size() const { return __len; }
-    inline void resize(size_t n) { __len = n; }
+    KOKKOS_INLINE_FUNCTION
+    size_t size() const { return __len; }
+    KOKKOS_INLINE_FUNCTION 
+    void resize(size_t n) { __len = n; }
 
     /// @brief Element access
-    inline T& operator[](int i) { return __data[i]; }
-    inline T operator[](int i) const { return __data[i]; }
-    inline T* data() { return __data; }
+    KOKKOS_INLINE_FUNCTION
+    T& operator[](int i) { return __data[i]; }
+    KOKKOS_INLINE_FUNCTION 
+    T operator[](int i) const { return __data[i]; }
+    KOKKOS_INLINE_FUNCTION
+    T* data() { return __data; }
     
     /// @brief Modifiers
-    inline void push_back(T in) { __data[__len++] = in;}
-    inline T pop_back() { return __data[--__len];}
+    KOKKOS_INLINE_FUNCTION
+    void push_back(T in) { __data[__len++] = in;}
+    KOKKOS_INLINE_FUNCTION
+    T pop_back() { return __data[--__len];}
 
+    KOKKOS_FUNCTION
     iterator insert(iterator pos, const T& val) {
-      for (iterator i = __data[__len]; i != pos; i--)
+      for (iterator i = __data + __len; i != pos; i--)
         *i = *(i - 1);
       *pos = val;
       __len++;
       return pos;
     }
 
+    KOKKOS_FUNCTION
     iterator erase(iterator pos) {
-      for (iterator i = pos + 1; i != __data[__len]; i++)
+      for (iterator i = pos + 1; i != __data + __len; i++)
         *(i - 1) = *i;
       __len--;
       return pos;
     }
 
     /// @brief Compare operators
+    KOKKOS_FUNCTION
     bool operator==(const Array<T>& p) const {
       if (__len != p.__len)
         return false;
@@ -77,14 +90,6 @@ class Array {
         if (__data[i] != __data[i])
           return false;
       return true;
-    }
-
-    /// @brief Additional functions
-    iterator find(T from) { 
-      for (iterator i = __data; i != &__data[__len]; i++)
-        if (*i == from)
-          return i;
-      return &__data[__len];
     }
 
   private:
@@ -111,16 +116,20 @@ class View : public Kokkos::DualView<T*> {
     }
     inline void init(size_t len) { init(len, len); }
 
+    /// @brief Modifiers
+    inline void push_back(T in) { this->h_view(__len++) = in; }
+    inline T pop_back() { return this->h_view(--__len); }
+
     /// @brief Capacity
     inline size_t size() const { return __len; }
+    inline void resize(size_t n) { __len = n; }
 
-    /// @brief Element access, for host 
-    inline T& operator[](int i) { return this->h_view(i); }
-    inline T operator[](int i) const { return this->h_view(i); }
+    /// @brief Element access, for host
+    inline T& operator[](int i) const { return this->h_view(i); }
 
     /// @brief Element access, for device
-    inline T& operator()(int i) { return this->d_view(i); }
-    inline T operator()(int i) const { return this->d_view(i); }
+    KOKKOS_INLINE_FUNCTION
+    T& operator()(int i) const { return this->d_view(i); }
 
   private:
     size_t __len;
@@ -134,41 +143,58 @@ class View : public Kokkos::DualView<T*> {
  */
 class Vector {
   public:
-    inline Vector(): __data{0} {}
-    inline Vector(double i, double j, double k): __data{i, j, k} {}
-    inline double& operator[](int i) { return __data[i]; }
-    inline double operator[](int i) const { return __data[i]; }
+    KOKKOS_INLINE_FUNCTION Vector(): __data{0} {}
+    KOKKOS_INLINE_FUNCTION
+    Vector(double i, double j, double k): __data{i, j, k} {}
+    KOKKOS_INLINE_FUNCTION
+    double& operator[](int i) { return __data[i]; }
+    KOKKOS_INLINE_FUNCTION
+    double operator[](int i) const { return __data[i]; }
 
     /// @brief add, subtract and self-add
-    inline Vector operator+(const Vector& p) const {
+    KOKKOS_INLINE_FUNCTION
+    Vector operator+(const Vector& p) const {
       return Vector(__data[0] + p[0], __data[1] + p[1], __data[2] + p[2]);
     }
-    inline Vector operator-() const { return Vector(-__data[0], -__data[1], -__data[2]); }
-    inline Vector operator-(const Vector& p) const {
+    KOKKOS_INLINE_FUNCTION
+    Vector operator-() const {
+      return Vector(-__data[0], -__data[1], -__data[2]);
+    }
+    KOKKOS_INLINE_FUNCTION
+    Vector operator-(const Vector& p) const {
       return Vector(__data[0] - p[0], __data[1] - p[1], __data[2] - p[2]);
     }
-    inline void operator+=(const Vector& p) {
+    KOKKOS_INLINE_FUNCTION
+    void operator+=(const Vector& p) {
       __data[0] += p[0]; __data[1] += p[1]; __data[2] += p[2];
     }
 
     /// @brief quantity product
-    inline Vector operator*(double n) const {
+    KOKKOS_INLINE_FUNCTION
+    Vector operator*(double n) const {
       return Vector(n * __data[0], n * __data[1], n * __data[2]);
     }
     
     /// @brief 1/n times vector
-    inline Vector operator/(double n) const {
+    KOKKOS_INLINE_FUNCTION
+    Vector operator/(double n) const {
       return Vector(__data[0] / n, __data[1] / n, __data[2] / n);
     }
 
     /// @brief dot product of two vectors
-    inline double operator*(const Vector& p) const {
+    KOKKOS_INLINE_FUNCTION
+    double operator*(const Vector& p) const {
       return __data[0] * p[0] + __data[1] * p[1] + __data[2] * p[2];
     }
 
     /// @brief compare two vectors
-    inline bool operator==(const Vector& p) const {
+    KOKKOS_INLINE_FUNCTION 
+    bool operator==(const Vector& p) const {
       return __data[0]==p[0] && __data[1]==p[1] && __data[2]==p[2];
+    }
+    KOKKOS_INLINE_FUNCTION
+    bool operator!=(const Vector& p) const {
+      return __data[0]!=p[0] || __data[1]!=p[1] || __data[2]!=p[2];
     }
 
   private:
@@ -176,17 +202,19 @@ class Vector {
 }; // class Vector
 
 /// @brief quantity product for n on the left hand
-inline Vector operator*(double n, const Vector& p) { return p * n; }
+KOKKOS_INLINE_FUNCTION
+Vector operator*(double n, const Vector& p) { return p * n; }
 
 /// @brief cross product of two vectors
-inline Vector cross(const Vector& p1, const Vector& p2) {
+KOKKOS_INLINE_FUNCTION
+Vector cross(const Vector& p1, const Vector& p2) {
   return Vector( p1[1]*p2[2] - p1[2]*p2[1], p1[2]*p2[0] - p1[0]*p2[2],
     p1[0]*p2[1] - p1[1]*p2[0]);
 }
 
 /// @brief length of vector p
-inline double mod(const Vector& p) { return Kokkos::sqrt(p * p); }
-
+KOKKOS_INLINE_FUNCTION
+double mod(const Vector& p) { return Kokkos::sqrt(p * p); }
 
 /**
  * @class Pair
@@ -198,18 +226,26 @@ inline double mod(const Vector& p) { return Kokkos::sqrt(p * p); }
 template <typename T>
 class Pair {
   public:
-    inline Pair(): __data{0} {}
-    inline Pair(T a, T b): __data{a, b} {}
-    inline T& operator[](int i) { return __data[i]; }
-    inline T operator[](int i) const { return __data[i]; }
+    KOKKOS_INLINE_FUNCTION Pair(): __data{0} {}
+    KOKKOS_INLINE_FUNCTION
+    Pair(T a, T b): __data{a, b} {}
+    KOKKOS_INLINE_FUNCTION
+    T& operator[](int i) { return __data[i]; }
+    KOKKOS_INLINE_FUNCTION
+    T operator[](int i) const { return __data[i]; }
     
-    /// @brief If node a is connected by this bond, return the other node. Return -1 else.
-    inline T find(T a) const {
-      return (__data[0] == a) ? __data[1] : ((__data[1] == a) ? __data[0] : -1);
+    /// @brief If node 'a' is connected by this bond, return the other node.
+    ///     Return -1 else.
+    KOKKOS_INLINE_FUNCTION
+    T find(T a) const {
+      return (__data[0] == a) ?
+          __data[1] : ((__data[1] == a) ?
+              __data[0] : -1);
     }
 
     /// @brief replace a with b，return false if failed，otherwise true.
-    inline bool replace(T a, T b) {
+    KOKKOS_INLINE_FUNCTION
+    bool replace(T a, T b) {
       if (__data[0] == a) {
         __data[0] = b;
         return true;
@@ -222,15 +258,19 @@ class Pair {
     }
 
     /// @brief compare
-    inline bool operator==(Pair<T> b) const {
-      return (__data[0] == b[0] && __data[1] == b[1]) || (__data[1] == b[0] && __data[0] == b[1]);
+    KOKKOS_INLINE_FUNCTION
+    bool operator==(Pair<T> b) const {
+      return (__data[0] == b[0] && __data[1] == b[1]) ||
+          (__data[1] == b[0] && __data[0] == b[1]);
     }
 
     /// @brief add and substrct, for 2 dimensional coordinates
-    inline Pair<T> operator-(Pair<T> b) const {
+    KOKKOS_INLINE_FUNCTION
+    Pair<T> operator-(Pair<T> b) const {
       return Pair<T>(__data[0] - b[0], __data[1] - b[1]);
     }
-    inline Pair<T> operator+(Pair<T> b) const {
+    KOKKOS_INLINE_FUNCTION
+    Pair<T> operator+(Pair<T> b) const {
       return Pair<T>(__data[0] + b[0], __data[1] + b[1]);
     }
 
@@ -246,7 +286,8 @@ class Pair {
 class Pool {
   public:
     inline Pool() : __pool(Kokkos::Timer().seconds()) {}
-    inline Vector gen_vector(double end) {
+    KOKKOS_INLINE_FUNCTION
+    Vector gen_vector(double end) const {
       auto generator = __pool.get_state();
       double r = generator.drand(0, end);
       double phi = generator.drand(0, 2*PI);
@@ -260,5 +301,18 @@ class Pool {
 }; // class Pool
 
 } // namespace CoreMath
+
+// reduction identity of Vector, must be defined in Kokkos namespace
+namespace Kokkos {
+
+template<>
+struct reduction_identity<CoreMath::Vector> {
+  KOKKOS_FORCEINLINE_FUNCTION
+  static CoreMath::Vector sum() {
+    return CoreMath::Vector();
+  }
+};
+
+} // namespace Kokkos
 
 #endif // QUADRATUBE_CORE_MATH_H_

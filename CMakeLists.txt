@@ -8,6 +8,8 @@ include_directories(src)
 set(Kokkos_DIR /home/bovera/libkokkos/lib/cmake/Kokkos)
 find_package(Kokkos REQUIRED)
 
+set(CMAKE_CXX_STANDARD 17)
+
 # 设置输出为调试，不需要自行注释掉
 set(CMAKE_BUILD_TYPE "Debug")
 

@@ -15,8 +15,11 @@
 
 #include "core/math.h"
 #include "model/system.h"
+#include "metadata.h"
 
 namespace ModelInitializer {
+
+#if MODEL_TYPE == 3
 
 typedef struct {
   int m;  ///< parastichy number m
@@ -26,7 +29,10 @@ typedef struct {
   int glide;  ///< 滑移步数
   int climb;  ///< 攀移步数
   int bn; ///< begin position
-} Parameters3;
+  double rest_len;
+} Parameters;
+
+#else // if MODEL_TYPE == 4
 
 typedef struct {
   int m;  //!< 叶序数 m
@@ -36,21 +42,14 @@ typedef struct {
   int glide;  //!< 滑移步数
   int climb;  //!< 攀移步数
   int bn; //!< 位错在管上的初始位置
-} Parameters4;
+} Parameters;
 
-class Initializer3 {
+#endif // check MODEL_TYPE
+
+class Initializer {
   public:
-    inline Initializer3(ModelSystem& system): __system(system) {}
-    void init(Parameters3 init_parameter);
-
-  private:
-    ModelSystem& __system;
-};
-
-class Initializer4 {
-  public:
-    inline Initializer4(ModelSystem& system): __system(system) {}
-    void init(Parameters4 init_parameter);
+    inline Initializer(ModelSystem& system): __system(system) {}
+    void init(Parameters init_parameter);
 
   private:
     ModelSystem& __system;

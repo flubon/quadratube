@@ -31,19 +31,16 @@ const char __dump_file_header[] =
 } // namespace
 
 void ModelSystem::dump(std::string file_name, Metadata::DumpType dump_type) {
-  sync<HostMirrorSpace>();
+  sync_all<HostMirrorSpace>();
 
   // boundary: x, y, z: [0, 30*bond1_rest_length_]
   double boundary_max = 30*bond1_rest_length_;
 
+  // total types. default type is 1, dislocations use type 2
   int atom_types = DUMP_CHECK(Metadata::kPrintDislocations, dump_type) ? 2 : 1;
-  // default type is 1, dislocations use type 2
-  int* types = new int[node_positions_.size()];
-  for (auto i=0; i<node_positions_.size(); i++)
-    types[i] = 1;
-  if (atom_types == 2)
-    for (int i=0; i<part_node_emphasis_.size(); i++)
-      types[part_node_emphasis_[i]] = 2;
+  auto get_type = [=](bool in) {
+    return (atom_types == 2) ? static_cast<int>(in) + 1 : 1;
+  };
 
   // print bonds into data file, skip if file exists already.
   FILE *file = std::fopen((file_name + ".data").c_str(), "r");
@@ -56,15 +53,15 @@ void ModelSystem::dump(std::string file_name, Metadata::DumpType dump_type) {
     int bond_types = DUMP_CHECK(Metadata::kExcludeBondType2, dump_type) ? 1 : 2;
     std::fprintf(file, __data_file_header,
       node_positions_.size(), bonds, atom_types, bond_types,          // atom & bond number
-      0., boundary_max, 0., boundary_max, 0., boundary_max, this->mass_  // boundary & masses
+      0., boundary_max, 0., boundary_max, 0., boundary_max, mass_  // boundary & masses
     );
     if (atom_types == 2)
-      std::fprintf(file, "2\t%.8f\n", this->mass_);
+      std::fprintf(file, "2\t%.8f\n", mass_);
 
     // Atoms, id type x y z
     std::fprintf(file, "\nAtoms\n\n");
     for (int i=0; i<node_positions_.size(); i++)
-      std::fprintf(file, "%i\t%i\t%.8f\t%.8f\t%.8f\n", i, types[i],
+      std::fprintf(file, "%i\t%i\t%.8f\t%.8f\t%.8f\n", i, get_type(node_if_emphasis_[i]),
           node_positions_[i][0], node_positions_[i][1], node_positions_[i][2]);
 
     // Bonds, id type a b
@@ -97,7 +94,7 @@ void ModelSystem::dump(std::string file_name, Metadata::DumpType dump_type) {
   // data
   for (int i=0; i<node_positions_.size(); i++) {
     // basic: id type xs ys zs
-    std::fprintf(file, "%i\t%i\t%.8f\t%.8f\t%.8f", i, types[i],
+    std::fprintf(file, "%i\t%i\t%.8f\t%.8f\t%.8f", i, get_type(node_if_emphasis_[i]),
       node_positions_[i][0], node_positions_[i][1], node_positions_[i][2]);
     if (DUMP_CHECK(Metadata::kPrintVelocities, dump_type))
       std::fprintf(file, "\t%.8f\t%.8f\t%.8f", node_velocities_[i][0], node_velocities_[i][1],
@@ -114,7 +111,6 @@ void ModelSystem::dump(std::string file_name, Metadata::DumpType dump_type) {
   }
   std::fclose(file);
 
-  delete[] types;
   return;
 }
 
@@ -126,7 +122,129 @@ void ModelSystem::load(std::string file_name) {
 
 }
 
-void ModelSystem::update() {
-  CoreMath::View<CoreMath::Array<CoreMath::Vector>> curvature_gradients;
+void ModelSystem::update(bool just_velocity) {
+  // gradients of curvature
+  Kokkos::View<CoreMath::Array<CoreMath::Vector>*> gradients("", node_velocities_.size());
 
+  // update using bonds
+  Kokkos::parallel_for(node_velocities_.size(), KOKKOS_CLASS_LAMBDA(const int i) {
+    // if it's not boundary or next to bound, curvature will take effect
+    if (!node_if_rigid1_(i) && !node_if_rigid2_(i) && 
+        !node_if_next_to_rigid1_(i) && !node_if_next_to_rigid2_(i)) {
+      auto positions = d_get_positions(i, node_adjacents_curvature_(i));
+      gradients(i) = curvature_gradient(positions);
+    } else {
+      gradients(i) = CoreMath::Array<CoreMath::Vector>(node_adjacents_curvature_(i).size());
+    }
+
+    CoreMath::Vector reduced;
+    CoreMath::Array<int> position1 = node_adjacents_bonds1_(i), 
+        position2 = node_adjacents_bonds2_(i);
+    // If it's boundary nodes, don't count its related boundary nodes (for rigid body).
+    if (node_if_rigid1_(i) || node_if_rigid2_(i)) {
+      for (int j=0; j<position1.size(); j++)
+        if (node_if_rigid1_(position1[j]) || node_if_rigid2_(position1[j])) {
+          position1.erase(position1.begin()+j);
+          // The node has been erased, the same place has the diffrent node needing a second count.
+          j--;
+        }
+      for (int j=0; j<position2.size(); j++)
+        if (node_if_rigid1_(position2[j]) || node_if_rigid2_(position2[j])) {
+          position2.erase(position2.begin()+j);
+          j--;
+        }
+    }
+    // total force arised from bonds of type 1
+    for (auto j : d_get_positions(i, position1))
+      reduced += bond1_gradient(j);
+    // total force arised from bonds of type 2
+    for (auto j : d_get_positions(i, position2))
+      reduced += bond2_gradient(j);
+
+    // here node velocities are just -div(), divide by damp_coeff_ later
+    node_velocities_(i) = reduced;
+  });
+
+  // another loop because we need to wait for every gradient finish
+  Kokkos::parallel_for(node_velocities_.size(), KOKKOS_CLASS_LAMBDA(const int i) {
+    // force arised from other node's curvature
+    CoreMath::Vector reduced;
+    // reduced vector for this node itself, no need to use parallel_reduce
+    for (int j=0; i<gradients(i).size(); j++)
+      reduced += gradients(i)[j];
+
+    for (int j=0; j<node_adjacents_curvature_(i).size(); j++) {
+      int adj = node_adjacents_curvature_(i)[j];
+      // find related bond of adj and i
+      for (int k=0; k<node_adjacents_curvature_(adj).size(); k++)
+        if (node_adjacents_curvature_(adj)[k] == i) {
+          reduced += -gradients(adj)[k];
+          break;
+        }
+    }
+
+    // random number, avoid waste when temperature equals 0
+    if (temperature_ != 0 && !node_if_rigid1_(i) && !node_if_rigid2_(i))
+      reduced += rand_pool_.gen_vector(Kokkos::sqrt(2*damp_coeff_*temperature_*K_B/mass_));
+    node_velocities_(i) = (node_velocities_(i) + reduced) / damp_coeff_;
+  });
+
+  Kokkos::fence();
+  if (just_velocity)
+    return;
+  
+  // Center of mass, inertia tensor, total force, total moment, angular acceleration
+  CoreMath::Vector center1, tensor1, force1, moment1, center2, tensor2, force2, moment2;
+  // update non-boundary and boundary nodes
+  Kokkos::parallel_reduce(node_positions_.size(), KOKKOS_CLASS_LAMBDA(const int i,
+      CoreMath::Vector& center_inner1, CoreMath::Vector& center_inner2) {
+    if (node_if_rigid1_(i)) {
+      center_inner1 += node_positions_(i);
+    } else if (node_if_rigid2_(i)) {
+      center_inner2 += node_positions_(i);
+    } else {
+      node_positions_(i) += node_velocities_(i) * step_length_;
+    }
+  }, center1, center2);
+
+  center1 = center1 / node_if_rigid1_count_;
+  center2 = center2 / node_if_rigid2_count_;
+
+  // calculate with rigid body
+  Kokkos::parallel_reduce(node_positions_.size(), KOKKOS_CLASS_LAMBDA(const int i,
+      CoreMath::Vector& force_inner1, CoreMath::Vector& force_inner2,
+      CoreMath::Vector& moment_inner1, CoreMath::Vector& moment_inner2,
+      CoreMath::Vector& tensor_inner1, CoreMath::Vector& tensor_inner2) {
+    if (node_if_rigid1_(i)) {
+      auto force = damp_coeff_ * node_velocities_(i);
+      force_inner1 += force;
+      auto t = node_positions_(i) - center1;
+      moment_inner1 += CoreMath::cross(t, force);
+      tensor_inner1 += CoreMath::Vector(t[1]*t[1]+t[2]*t[2], t[0]*t[0]+t[2]*t[2], t[0]*t[0]+t[1]*t[1]);
+    } else if (node_if_rigid2_(i)) {
+      auto force = damp_coeff_ * node_velocities_(i);
+      force_inner2 += force;
+      auto t = node_positions_(i) - center2;
+      moment_inner2 += CoreMath::cross(t, force);
+      tensor_inner2 += CoreMath::Vector(t[1]*t[1]+t[2]*t[2], t[0]*t[0]+t[2]*t[2], t[0]*t[0]+t[1]*t[1]);
+    }
+  }, force1, force2, moment1, moment2, tensor1, tensor2);
+
+  // principal axis approximation, we don't need precise handle for boundary
+  tensor1 = node_if_rigid1_count_ * CoreMath::Vector(moment1[0]/tensor1[0], 
+      moment1[1]/tensor1[1], moment1[2]/tensor1[2]);
+  tensor2 = node_if_rigid2_count_ * CoreMath::Vector(moment2[0]/tensor2[0], 
+      moment2[1]/tensor2[1], moment2[2]/tensor2[2]);
+  
+  Kokkos::parallel_for(node_positions_.size(), KOKKOS_CLASS_LAMBDA(const int i) {
+    if (node_if_rigid1_(i)) {
+      auto t = node_positions_(i) - center1;
+      node_positions_(i) += (force1 + CoreMath::cross(tensor1, t)) *
+          step_length_ / damp_coeff_;
+    } else if (node_if_rigid2_(i)) {
+      auto t = node_positions_(i) - center2;
+      node_positions_(i) += (force2 + CoreMath::cross(tensor2, t)) *
+          step_length_ / damp_coeff_;
+    }
+  });
 }

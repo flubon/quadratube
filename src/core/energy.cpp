@@ -13,6 +13,7 @@
 
 namespace CoreEnergy {
 
+KOKKOS_FUNCTION
 double mean_curvature(const CoreMath::Array<CoreMath::Vector>& others) {
   CoreMath::Vector H_vec;
   int size = 0;
@@ -38,6 +39,7 @@ double mean_curvature(const CoreMath::Array<CoreMath::Vector>& others) {
   return CoreMath::mod(H_vec)*3/4/size;
 }
 
+KOKKOS_FUNCTION
 double gaussian_curvature(const CoreMath::Array<CoreMath::Vector>& others) {
   // Size around this node, total angle
   double angles = 2*PI, size = 0;
@@ -51,8 +53,12 @@ double gaussian_curvature(const CoreMath::Array<CoreMath::Vector>& others) {
 
   return angles*3/size;
 }
-    
+
+KOKKOS_FUNCTION
 double curvature_energy(const double* para, const CoreMath::Array<CoreMath::Vector>& others) {
+  // when you don't want to have curvature, just set para[0] = 0
+  if (para[0] == 0)
+    return 0;
   CoreMath::Vector H_vec;
   double size = 0, angles = 2*PI;
 
@@ -79,8 +85,11 @@ double curvature_energy(const double* para, const CoreMath::Array<CoreMath::Vect
   return para[0]*((H_vec*H_vec)*9/8/size/size - angles*3/size);
 }
 
+KOKKOS_FUNCTION
 CoreMath::Array<CoreMath::Vector> curvature_gradient(const double* para, 
     const CoreMath::Array<CoreMath::Vector>& others) {
+  if (para[0] == 0)
+    return CoreMath::Array<CoreMath::Vector>(others.size());
   // angle, size*2
   double angles = 2*PI, size2 = 0;
   CoreMath::Vector H_vec;
@@ -131,19 +140,19 @@ CoreMath::Array<CoreMath::Vector> curvature_gradient(const double* para,
     double k = para[0]/a1[i]/size2;
     double k1 = 6 + G_4H2*a0[i];
     double k2 = 6*a0[i]/a2[i]/a2[i] + G_4H2;
-    result[i] += k*(k2*(others[ir]*others[ir])*others[i] - k1*others[ir]);
-    result[ir] += k*(k2*(others[i]*others[i])*others[ir] - k1*others[i]);
+    double k3 = 6*para[0]*H/size2;
+    double k4 = b2[i]*b2[i]/b1[i]/b1[i]/b1[i]*(others[i]*H_vec);
+    double k5 = c2[i]*c2[i]/c1[i]/c1[i]/c1[i]*(others[i]*H_vec);
 
-    k = 6*para[0]*H/size2;
-    k1 = b2[i]*b2[i]/b1[i]/b1[i]/b1[i]*(others[i]*H_vec);
-    k2 = c2[i]*c2[i]/c1[i]/c1[i]/c1[i]*(others[i]*H_vec);
-    result[i] += k*((b0[i]/b1[i] + c0[i]/c1[i]) * H_vec -
-        k1*(others[il] - b0[0]*il_i/(il_i*il_i)) -
-        k2*(others[ir] - c0[0]*ir_i/(ir_i*ir_i)));
-    result[il] += k*k1*((1-b0[0]/(others[il]*others[il])) * others[il] +
-        (1-b0[0]/(il_i*il_i))*il_i);
-    result[ir] += k*k2*((1-c0[0]/(others[ir]*others[ir])) * others[ir] +
-        (1-c0[0]/(ir_i*ir_i))*ir_i);
+    result[i] += k*(k2*(others[ir]*others[ir])*others[i] - k1*others[ir]) +
+        k3*((b0[i]/b1[i] + c0[i]/c1[i]) * H_vec -
+        k4*(others[il] - b0[i]*il_i/(il_i*il_i)) -
+        k5*(others[ir] - c0[i]*ir_i/(ir_i*ir_i)));
+    result[ir] += k*(k2*(others[i]*others[i])*others[ir] - k1*others[i]) +
+        k3*k5*((1-c0[i]/(others[ir]*others[ir])) * others[ir] +
+        (1-c0[i]/(ir_i*ir_i))*ir_i);
+    result[il] += k3*k4*((1-b0[i]/(others[il]*others[il])) * others[il] +
+        (1-b0[i]/(il_i*il_i))*il_i);
   }
 
   return result;
