@@ -23,32 +23,6 @@
  */
 class ModelSystem : public Metadata::EnergyMetaData {
   public:
-    /// @brief initialize members
-    /// @param node_number 
-    /// @param bond_number 
-    /// @param part_number 
-    inline void init_all(size_t node_number, size_t bond_number) {
-      for (int i=0; i<2; i++)
-        __node_attributes[i].init(0, node_number);
-      for (int i=0; i<3; i++)
-        __node_relations[i].init(0, node_number);
-      for (int i=0; i<5; i++)
-        __node_judgements[i].init(0, node_number);
-      for (int i=0; i<2; i++)
-        __bond_relations[i].init(0, bond_number);
-    }
-
-    /// @brief make nodes number consistent
-    /// @param node_number 
-    inline void resize_nodes(size_t node_number) {
-      for (int i=0; i<2; i++)
-        __node_attributes[i].resize(node_number);
-      for (int i=0; i<3; i++)
-        __node_relations[i].resize(node_number);
-      for (int i=0; i<5; i++)
-        __node_judgements[i].resize(node_number);
-    }
-
     /// @brief transform index of others to relative positions
     /// @details "h" is for host, "d" is for device
     /// @param center 
@@ -83,38 +57,9 @@ class ModelSystem : public Metadata::EnergyMetaData {
         node_positions_(others[1])-node_positions_(center));
     }
     
-    /**
-     * @brief sync of all Kokkos::DualView
-     * 
-     * @tparam Device 
-     */
-    template <class Device>
-    inline void sync_all() {
-      for (int i=0; i<2; i++)
-        __node_attributes[i].sync<Device>();
-      for (int i=0; i<3; i++)
-        __node_relations[i].sync<Device>();
-      for (int i=0; i<5; i++)
-        __node_judgements[i].sync<Device>();
-      for (int i=0; i<2; i++)
-        __bond_relations[i].sync<Device>();
-    }
-
-    template <class Device>
-    inline void modify_all() {
-      for (int i=0; i<2; i++)
-        __node_attributes[i].modify<Device>();
-      for (int i=0; i<3; i++)
-        __node_relations[i].modify<Device>();
-      for (int i=0; i<5; i++)
-        __node_judgements[i].modify<Device>();
-      for (int i=0; i<2; i++)
-        __bond_relations[i].modify<Device>();
-    }
-    
     /// @brief alias of default memory and host mirrorspace
-    using MemorySpace = Kokkos::DefaultExecutionSpace::memory_space;
-    using HostMirrorSpace = Kokkos::Impl::HostMirror<MemorySpace>::Space;
+    using MemorySpace = CoreMath::View<int>::MemorySpace;
+    using HostMirrorSpace = CoreMath::View<int>::HostMirrorSpace;
 
     void dump(std::string file_name, Metadata::DumpType dump_type);
     void store(std::string file_name);
@@ -127,40 +72,35 @@ class ModelSystem : public Metadata::EnergyMetaData {
   // Data which will be store and load
   public:
     /// @brief These are used in calculate
-    CoreMath::View<CoreMath::Vector>& node_positions_ = __node_attributes[0];  
-    CoreMath::View<CoreMath::Vector>& node_velocities_ = __node_attributes[1];
+    CoreMath::View<CoreMath::Vector> node_positions_;  
+    CoreMath::View<CoreMath::Vector> node_velocities_;
+
+    // These won't be changed during update, and won't be checked by update or store.
 
     /// @brief Adjacents of nodes
-    CoreMath::View<CoreMath::Array<int>>& node_adjacents_bonds1_ = __node_relations[0];
-    CoreMath::View<CoreMath::Array<int>>& node_adjacents_bonds2_ = __node_relations[1];
-    CoreMath::View<CoreMath::Array<int>>& node_adjacents_curvature_ = __node_relations[2];
+    CoreMath::View<CoreMath::Array<int>> node_adjacents_bonds1_;
+    CoreMath::View<CoreMath::Array<int>> node_adjacents_bonds2_;
+    CoreMath::View<CoreMath::Array<int>> node_adjacents_curvature_;
 
     /// @brief Nodes of dislocations, have different types when output.
-    CoreMath::View<bool>& node_if_emphasis_ = __node_judgements[0];
-    int& node_if_emphasis_count_ = __node_judgements_count[0];
+    CoreMath::View<bool> node_if_emphasis_;
+    int node_if_emphasis_count_ = 0;
 
     /// @brief Nodes regards like rigid body, for edge processing.
-    CoreMath::View<bool>& node_if_rigid1_ = __node_judgements[1];
-    int& node_if_rigid1_count_ = __node_judgements_count[1];
-    CoreMath::View<bool>& node_if_next_to_rigid1_ = __node_judgements[2];
-    int& node_if_next_to_rigid1_count_ = __node_judgements_count[2];
-    CoreMath::View<bool>& node_if_rigid2_ = __node_judgements[3];
-    int& node_if_rigid2_count_ = __node_judgements_count[3];
-    CoreMath::View<bool>& node_if_next_to_rigid2_ = __node_judgements[4];
-    int& node_if_next_to_rigid2_count_ = __node_judgements_count[4];
+    CoreMath::View<bool> node_if_rigid1_;
+    int node_if_rigid1_count_ = 0;
+    CoreMath::View<bool> node_if_next_to_rigid1_;
+    int node_if_next_to_rigid1_count_ = 0;
+    CoreMath::View<bool> node_if_rigid2_;
+    int node_if_rigid2_count_ = 0;
+    CoreMath::View<bool> node_if_next_to_rigid2_;
+    int node_if_next_to_rigid2_count_ = 0;
 
     /// @brief These are used just for output, bonds and bond types
-    CoreMath::View<CoreMath::Pair<int>>& bond_relations1_ = __bond_relations[0];
-    CoreMath::View<CoreMath::Pair<int>>& bond_relations2_ = __bond_relations[1];
+    CoreMath::View<CoreMath::Pair<int>> bond_relations1_;
+    CoreMath::View<CoreMath::Pair<int>> bond_relations2_;
   
   private:
-    CoreMath::View<CoreMath::Vector> __node_attributes[2];
-    CoreMath::View<CoreMath::Array<int>> __node_relations[3];
-    CoreMath::View<bool> __node_judgements[5];
-    CoreMath::View<CoreMath::Pair<int>> __bond_relations[2];
-    /// @brief count how many trues in __node_judgements
-    int __node_judgements_count[5] = {0};
-
     int __time_step = 0;
 }; // class ModelSystem
 

@@ -35,11 +35,12 @@ cmake .. -DKokkos_ENABLE_OPENMP=ON\
   -DKokkos_ENABLE_SERIAL=ON -DKokkos_ENABLE_CUDA_LAMBDA=ON\
   -DKokkos_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE=ON\
   -DKokkos_ENABLE_IMPL_DESUL_ATOMICS=OFF\
+  -DKokkos_ENABLE_CUDA_UVM=ON\
   -DCMAKE_CXX_STANDARD=17\
   -DCMAKE_INSTALL_PREFIX=/home/bovera/libkokkos
 ```
 
-If you don't want to use CUDA, just need to specify `Kokkos_ENABLE_OPENMP=ON`, `Kokkos_ENABLE_SERIAL=ON`, `CMAKE_INSTALL_PREFIX=/some/path`(install location, according to yourself) and `CMAKE_CXX_STANDARD=17`. If CUDA is used, `Kokkos_ENABLE_CUDA=ON`, `Kokkos_ENABLE_CUDA_LAMBDA=ON` and `Kokkos_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE=ON` must be specified. `Kokkos_ENABLE_IMPL_DESUL_ATOMICS=OFF` and `Kokkos_ARCH_XXX=ON` is needed due to the following reasons.
+If you don't want to use CUDA, just need to specify `Kokkos_ENABLE_OPENMP=ON`, `Kokkos_ENABLE_SERIAL=ON`, `CMAKE_INSTALL_PREFIX=/some/path`(install location, according to yourself) and `CMAKE_CXX_STANDARD=17`. If CUDA is used, `Kokkos_ENABLE_CUDA=ON`, `Kokkos_ENABLE_CUDA_LAMBDA=ON`, `Kokkos_ENABLE_CUDA_UVM=ON` and `Kokkos_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE=ON` must be specified. `Kokkos_ENABLE_IMPL_DESUL_ATOMICS=OFF` and `Kokkos_ARCH_XXX=ON` is needed due to the following reasons.
 
 ## Bugs Needing Special Attention
 

@@ -127,9 +127,6 @@ struct {
 /// check whether name is in i
 #define DUMP_CHECK(name, i) ((name & i) != 0)
 
-/// if MODEL_TYPE == 3, using triangular grid, 4 for quadrangular grid
-#define MODEL_TYPE 3
-
 } // namespace Metadata
 
 #endif // QUADRATUBE_METADATA_H_

@@ -66,7 +66,7 @@ class Array {
 
     KOKKOS_FUNCTION
     iterator insert(iterator pos, const T& val) {
-      for (iterator i = __data + __len; i != pos; i--)
+      for (iterator i = __data + __len; i > pos; i--)
         *i = *(i - 1);
       *pos = val;
       __len++;
@@ -75,10 +75,19 @@ class Array {
 
     KOKKOS_FUNCTION
     iterator erase(iterator pos) {
-      for (iterator i = pos + 1; i != __data + __len; i++)
+      for (iterator i = pos + 1; i < __data + __len; i++)
         *(i - 1) = *i;
       __len--;
       return pos;
+    }
+    
+    /// @brief Additional functions
+    KOKKOS_FUNCTION
+    iterator find(T from) { 
+      for (iterator i = __data; i < __data + __len; i++)
+        if (*i == from)
+          return i;
+      return __data + __len;
     }
 
     /// @brief Compare operators
@@ -109,6 +118,13 @@ class Array {
 template <typename T>
 class View : public Kokkos::DualView<T*> {
   public:
+    /// @brief alias of default memory and host mirrorspace
+    using DV = Kokkos::DualView<T*>;
+    using MemorySpace = typename DV::t_dev::memory_space;
+    using HostMirrorSpace = typename DV::t_host::memory_space;
+
+    inline View(): __len(0) {}
+
     /// @brief Constructor
     inline void init(size_t len, size_t cap) {
       __len = len;
@@ -130,6 +146,17 @@ class View : public Kokkos::DualView<T*> {
     /// @brief Element access, for device
     KOKKOS_INLINE_FUNCTION
     T& operator()(int i) const { return this->d_view(i); }
+
+    /// @brief The difference between 'erase' and 'remove' is 'remove' use value 
+    ///     and 'erase' use pointer. 'erase' keeps the order while 'remove' don't.
+    inline bool remove(T obj) {
+      for (int i=0; i<__len; i++)
+        if (this->h_view(i) == obj) {
+          this->h_view(i) = this->h_view(--__len);
+          return true;
+        }
+      return false;
+    }
 
   private:
     size_t __len;
@@ -165,8 +192,9 @@ class Vector {
       return Vector(__data[0] - p[0], __data[1] - p[1], __data[2] - p[2]);
     }
     KOKKOS_INLINE_FUNCTION
-    void operator+=(const Vector& p) {
+    Vector& operator+=(const Vector& p) {
       __data[0] += p[0]; __data[1] += p[1]; __data[2] += p[2];
+      return *this;
     }
 
     /// @brief quantity product

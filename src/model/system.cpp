@@ -31,7 +31,9 @@ const char __dump_file_header[] =
 } // namespace
 
 void ModelSystem::dump(std::string file_name, Metadata::DumpType dump_type) {
-  sync_all<HostMirrorSpace>();
+  // others won't be changed by update
+  node_positions_.sync<HostMirrorSpace>();  
+  node_velocities_.sync<HostMirrorSpace>();
 
   // boundary: x, y, z: [0, 30*bond1_rest_length_]
   double boundary_max = 30*bond1_rest_length_;
@@ -47,10 +49,11 @@ void ModelSystem::dump(std::string file_name, Metadata::DumpType dump_type) {
   if (DUMP_CHECK(Metadata::kPrintBond, dump_type) || file == NULL) {
     file = std::fopen((file_name + ".data").c_str(), "w");
 
-    // header
+    // header, check whether bond_relations2_.size() == 0 is for model3
     size_t bonds = DUMP_CHECK(Metadata::kExcludeBondType2, dump_type) ?
         bond_relations1_.size() : bond_relations1_.size() + bond_relations2_.size();
-    int bond_types = DUMP_CHECK(Metadata::kExcludeBondType2, dump_type) ? 1 : 2;
+    int bond_types = (bond_relations2_.size() == 0 ||
+        DUMP_CHECK(Metadata::kExcludeBondType2, dump_type)) ? 1 : 2;
     std::fprintf(file, __data_file_header,
       node_positions_.size(), bonds, atom_types, bond_types,          // atom & bond number
       0., boundary_max, 0., boundary_max, 0., boundary_max, mass_  // boundary & masses
@@ -142,17 +145,17 @@ void ModelSystem::update(bool just_velocity) {
         position2 = node_adjacents_bonds2_(i);
     // If it's boundary nodes, don't count its related boundary nodes (for rigid body).
     if (node_if_rigid1_(i) || node_if_rigid2_(i)) {
-      for (int j=0; j<position1.size(); j++)
-        if (node_if_rigid1_(position1[j]) || node_if_rigid2_(position1[j])) {
-          position1.erase(position1.begin()+j);
-          // The node has been erased, the same place has the diffrent node needing a second count.
-          j--;
-        }
-      for (int j=0; j<position2.size(); j++)
-        if (node_if_rigid1_(position2[j]) || node_if_rigid2_(position2[j])) {
-          position2.erase(position2.begin()+j);
-          j--;
-        }
+      for (auto j=position1.begin(); j!=position1.end(); ) {
+        // The node has been erased, the same place has the diffrent node needing a second count.
+        if (node_if_rigid1_(*j) || node_if_rigid2_(*j))
+          position1.erase(j);
+        else j++;
+      }
+      for (auto j=position2.begin(); j!=position2.end(); ) {
+        if (node_if_rigid1_(*j) || node_if_rigid2_(*j))
+          position2.erase(j);
+        else j++;
+      }
     }
     // total force arised from bonds of type 1
     for (auto j : d_get_positions(i, position1))
@@ -170,7 +173,7 @@ void ModelSystem::update(bool just_velocity) {
     // force arised from other node's curvature
     CoreMath::Vector reduced;
     // reduced vector for this node itself, no need to use parallel_reduce
-    for (int j=0; i<gradients(i).size(); j++)
+    for (int j=0; j<gradients(i).size(); j++)
       reduced += gradients(i)[j];
 
     for (int j=0; j<node_adjacents_curvature_(i).size(); j++) {
@@ -189,6 +192,7 @@ void ModelSystem::update(bool just_velocity) {
     node_velocities_(i) = (node_velocities_(i) + reduced) / damp_coeff_;
   });
 
+  node_velocities_.modify<MemorySpace>();
   Kokkos::fence();
   if (just_velocity)
     return;
@@ -247,4 +251,7 @@ void ModelSystem::update(bool just_velocity) {
           step_length_ / damp_coeff_;
     }
   });
+  
+  __time_step++;
+  node_positions_.modify<MemorySpace>();
 }

@@ -10,13 +10,13 @@
 #include "core/energy.h"
 
 #include "core/math.h"
-
+#include <stdio.h>
 namespace CoreEnergy {
 
 KOKKOS_FUNCTION
 double mean_curvature(const CoreMath::Array<CoreMath::Vector>& others) {
   CoreMath::Vector H_vec;
-  int size = 0;
+  double size = 0;
 
   for (int i = 0; i < others.size(); i++) {
     int left = (i==0) ? others.size()-1 : i-1;
@@ -26,13 +26,9 @@ double mean_curvature(const CoreMath::Array<CoreMath::Vector>& others) {
     CoreMath::Vector left_up = others[left] - others[i];
     CoreMath::Vector right_up = others[right] - others[i];
 
-    // tan(acos(x)) = sqrt(1/x/x-1)
-    double cos_angle1 = left_up*others[left]/CoreMath::mod(left_up)/
-        CoreMath::mod(others[left]);
-    double cos_angle2 = right_up*others[right]/CoreMath::mod(right_up)/
-        CoreMath::mod(others[right]);
-    H_vec += (1/Kokkos::sqrt(1/cos_angle1/cos_angle1-1) + 
-        1/Kokkos::sqrt(1/cos_angle2/cos_angle2-1)) * others[i];
+    // tan(acos(x)) = sqrt(1/x/x-1), if x = a*b/|a||b|, tan(acos(x)) = a*b/|a\times b|
+    H_vec += (left_up*others[left]/CoreMath::mod(CoreMath::cross(left_up, others[left])) + 
+        right_up*others[right]/CoreMath::mod(CoreMath::cross(right_up, others[right]))) * others[i];
     size += CoreMath::mod(CoreMath::cross(others[i], others[right])) / 2;
   }
 
@@ -70,13 +66,9 @@ double curvature_energy(const double* para, const CoreMath::Array<CoreMath::Vect
     CoreMath::Vector left_up = others[left] - others[i];
     CoreMath::Vector right_up = others[right] - others[i];
 
-    // tan(acos(x)) = sqrt(1/x/x-1)
-    double cos_angle1 = left_up*others[left]/CoreMath::mod(left_up)/
-        CoreMath::mod(others[left]);
-    double cos_angle2 = right_up*others[right]/CoreMath::mod(right_up)/
-        CoreMath::mod(others[right]);
-    H_vec += (1/Kokkos::sqrt(1/cos_angle1/cos_angle1-1) + 
-        1/Kokkos::sqrt(1/cos_angle2/cos_angle2-1)) * others[i];
+    // tan(acos(x)) = sqrt(1/x/x-1), if x = a*b/|a||b|, tan(acos(x)) = a*b/|a\times b|
+    H_vec += (left_up*others[left]/CoreMath::mod(CoreMath::cross(left_up, others[left])) + 
+        right_up*others[right]/CoreMath::mod(CoreMath::cross(right_up, others[right]))) * others[i];
     size += CoreMath::mod(CoreMath::cross(others[i], others[right])) / 2;
     angles -= Kokkos::acos(others[right]*others[i]/CoreMath::mod(others[right])/
         CoreMath::mod(others[i]));

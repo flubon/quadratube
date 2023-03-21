@@ -203,6 +203,14 @@
      d="M383.5598511951152,-244.75873947865705 L383.5598511951152,-244.75873947865705"
      stroke="black"
      id="path88" />
+  <path
+     d="M0,243.94819 L0,-223.75146"
+     stroke="black"
+     id="path90" />
+  <path
+     d="M-36.247204,0 L439.23111,0"
+     stroke="black"
+     id="path92" />
   <text
      xml:space="preserve"
      style="font-size:24px;line-height:1.25;font-family:'Cambria Math';-inkscape-font-specification:'Cambria Math, Normal';font-variant-ligatures:none;white-space:pre;inline-size:0"
@@ -225,4 +233,15 @@
        x="233.9247"
        y="127.39062"
        style="font-style:italic">m</tspan></text>
+  <text
+     xml:space="preserve"
+     style="font-size:24px;line-height:1.25;font-family:'Cambria Math';-inkscape-font-specification:'Cambria Math, Normal';font-variant-ligatures:none"
+     x="-19.603706"
+     y="19.880245"
+     id="text1860"><tspan
+       sodipodi:role="line"
+       id="tspan1858"
+       x="-19.603706"
+       y="19.880245"
+       style="font-style:italic;font-weight:bold">O</tspan></text>
 </svg>

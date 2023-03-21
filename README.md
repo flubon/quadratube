@@ -33,3 +33,12 @@ int main() {
   test_derivative(); // test function
 }
 ```
+
+## Compile
+If you want to use model 3 and want higher speed, run
+```sh
+cmake .. -DModel3=ON -DebugType=OFF
+```
+
+## Bugs
+See documentation [here](doc/md/bugs.md).

@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
   // initialize model with initializer
   ModelInitializer::Initializer initializer(model);
   ModelInitializer::Parameters parameters = {
-    .m = 5, .n = 3, .repeat = 8, .direction = -1, .glide = 5, .climb = 0
+    .m = 13, .n = 11, .repeat = 8, .direction = -1, .glide = 5, .climb = 0, .rest_len = 1
   };
   initializer.init(parameters);
 #endif
@@ -46,8 +46,8 @@ int main(int argc, char* argv[]) {
   // range of output box
   #define OUT_RANGE CoreMath::Vector(-INFINITY, -INFINITY, 29), CoreMath::Vector(INFINITY, INFINITY, 48)
 
-  for (int k=10000; k>0; k--) {
-    if (k%1000 == 0) {
+  for (int k=300000; k>0; k--) {
+    if (k%10000 == 0) {
       // dump current states
       model.dump("test", Metadata::kPrintAll);
       // use modifier to calculate related global quantities
