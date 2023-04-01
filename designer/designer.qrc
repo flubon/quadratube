@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/ui"/>
+    <qresource prefix="/fig">
+        <file>remove_node.svg</file>
+        <file>add_node.svg</file>
+        <file>remove_edge.svg</file>
+        <file>add_edge.svg</file>
+    </qresource>
+</RCC>
